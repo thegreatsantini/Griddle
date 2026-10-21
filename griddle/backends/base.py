@@ -6,7 +6,7 @@ student API, the engine, or the CLI - dependencies point inward only.
 If a method here can only be done by one backend, it does not belong
 in this file.
 """
-
+from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
