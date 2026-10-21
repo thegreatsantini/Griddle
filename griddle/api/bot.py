@@ -12,7 +12,7 @@ class Bot:
         """True while a grab or release is still finishing."""
         return self._backend.busy
     
-        def drive(self, fwd: float, turn: float) -> None:
+    def drive(self, fwd: float, turn: float) -> None:
         """Tank drive. fwd and turn both clamp to -1.0 .. 1.0."""
         clamped_fwd = max(-1, min(1, fwd))
         clamped_turn = max(-1, min(1, turn))
