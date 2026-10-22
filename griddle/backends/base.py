@@ -11,6 +11,17 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 
+# Every color a cube can be. Both backends validate against this.
+COLORS = ("red", "green", "blue")
+
+
+def validate_color(color: str) -> str:
+    """Return `color` lowercased, or raise ValueError with a kid-readable message."""
+    if not isinstance(color, str) or color.lower() not in COLORS:
+        raise ValueError(f"unknown color {color!r} - pick one of {', '.join(COLORS)}")
+    return color.lower()
+
+
 @dataclass
 class Cube:
     """A cube the camera can see.
@@ -83,5 +94,8 @@ class Backend(ABC):
 
     @abstractmethod
     def detect_shown_color(self) -> str:
-        """Read the color of a cube held up to the camera."""
+        """Read the color of a cube held up to the camera.
+
+        Returns one of COLORS, or "unknown" if nothing is clear.
+        """
         ...
