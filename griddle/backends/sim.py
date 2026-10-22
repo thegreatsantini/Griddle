@@ -21,31 +21,37 @@ MAX_SPEED = 1.5         # feet per second at fwd = 1.0   (MEASURE on Watney)
 MAX_TURN_RATE = 3.14    # radians per second at turn = 1.0 (MEASURE on Watney)
 GRAB_TIME = 1.0         # seconds for a grab or release to finish
 
-# Scoring pen: tape square in the top-right, 6" in from both edges.
-PEN_OFFSET = 0.5
-PEN_SIZE = 1.5          # CONFIRM against the tape on the mat
+# Goals: the painted squares in the top row of tiles, left to right.
+# Each tile is 2 ft; the painted square is inset GOAL_INSET from the tile edges.
+GOAL_ORDER = ["red", "green", "blue"]
+TILE = 2.0
+GOAL_INSET = 0.25       # ~3" border around each painted square (MEASURE)
 
 # Robot geometry
 ROBOT_RADIUS = 0.35     # keeps the robot body on the field
 CLAW_REACH = 0.45       # center of robot -> center of claw
-GRAB_RADIUS = 0.3       # a cube this close to the claw gets picked up
+GRAB_RADIUS = 0.25      # a cube this close to the claw gets picked up (3")
 CAMERA_FORWARD = 0.2    # camera sits a bit ahead of center
 CAMERA_FOV = math.radians(60)
 VISION_RANGE = 4.0      # feet; farther cubes are too small to detect
 CUBE_WIDTH = 0.125      # feet (1.5")
 
-# Where the robot starts: x, y, heading (degrees). Faces the pen.
-START_POSE = (1.0, 1.0, 45.0)
+# Where the robot starts: x, y, heading (degrees). Facing up, lined up with the
+# left green spot (x = 32") so the starter is one straight line - no turns.
+START_POSE = (32 / 12, 1.0, 90.0)   # y = mat bottom edge -> Watney's center (MEASURE)
 
-# Cubes on the field: (color, x, y). The first one is the freebie,
-# sitting right on the line from the start to the pen.
-FIELD_CUBES = [
-    ("green", 2.5, 2.5),
-    ("red", 1.0, 4.6),
-    ("blue", 4.6, 1.0),
-    ("red", 3.2, 4.8),
-    ("blue", 0.6, 2.8),
-]
+# Block line: y = 36". Two blocks per color, each pair under its own goal,
+# at tile center +/- 4" (so 8" apart in a pair, 16" between pairs).
+BLOCK_Y = 36
+BLOCK_X = [8, 16, 32, 40, 56, 64]     # inches from the left edge (MEASURE)
+
+# Which color sits on each spot, left to right. Pick with LAYOUT.
+LAYOUTS = {
+    "L1": ["red", "red", "green", "green", "blue", "blue"],   # color under its goal
+    "L2": ["blue", "blue", "green", "red", "red", "green"],   # fixed mix; spot 3 stays green for the starter
+    "L3": None,                                               # shuffled each reset (--seed)
+}
+LAYOUT = "L1"
 
 # ===================================================================================
 
@@ -77,7 +83,7 @@ class SimBackend(Backend):
     def reset(self) -> None:
         x, y, h = START_POSE
         self.x, self.y, self.heading = x, y, math.radians(h)
-        self.cubes = [SimCube(c, cx, cy) for c, cx, cy in FIELD_CUBES]
+        self.cubes = [SimCube(c, x / 12, BLOCK_Y / 12) for c, x in zip(self._layout(), BLOCK_X)]
         self._fwd = 0.0
         self._turn = 0.0
         self._busy_left = 0.0
@@ -85,6 +91,13 @@ class SimBackend(Backend):
         self.held: SimCube | None = None
         self.at_edge = False
         self.events: list[str] = []          # things worth telling the user
+
+    def _layout(self) -> list[str]:
+        colors = LAYOUTS[LAYOUT]
+        if colors is None:
+            colors = [c for c in GOAL_ORDER for _ in range(len(BLOCK_X) // len(GOAL_ORDER))]
+            self._rng.shuffle(colors)
+        return colors
 
     def start(self) -> None:
         pass
@@ -193,7 +206,13 @@ class SimBackend(Backend):
             if self.held:
                 self.held.held = False
                 self.held.x, self.held.y = cx, cy
-                where = "IN THE PEN" if in_pen(cx, cy) else "outside the pen"
+                g = goal_at(cx, cy)
+                if g is None:
+                    where = "outside the goals"
+                elif g == self.held.color:
+                    where = f"in the {g.upper()} goal - correct!"
+                else:
+                    where = f"in the {g.upper()} goal - WRONG goal"
                 self.events.append(f"released {self.held.color} {where}")
                 self.held = None
             else:
@@ -201,9 +220,10 @@ class SimBackend(Backend):
         self._pending = None
 
     def score(self) -> tuple[int, int]:
-        """(cubes in pen, cubes in pen matching the drawn color)"""
-        scored = [c for c in self.cubes if not c.held and in_pen(c.x, c.y)]
-        return len(scored), sum(c.color == self.shown_color for c in scored)
+        """(cubes in any goal, cubes in their own color's goal)"""
+        placed = [(c, goal_at(c.x, c.y)) for c in self.cubes if not c.held]
+        scored = [(c, g) for c, g in placed if g is not None]
+        return len(scored), sum(c.color == g for c, g in scored)
 
     # --- drawing ---
 
@@ -224,8 +244,9 @@ class SimBackend(Backend):
             for c in range(cols):
                 x = (c + 0.5) / COLS_PER_FT
                 y = FIELD_SIZE - (r + 0.5) / ROWS_PER_FT
-                if in_pen(x, y):
-                    grid[r][c] = self._paint("·", "dim")
+                g = goal_at(x, y)
+                if g is not None:
+                    grid[r][c] = self._paint("·", g)
 
         for cube in self.cubes:
             if not cube.held:
@@ -247,10 +268,16 @@ class SimBackend(Backend):
         edge = "  EDGE!" if self.at_edge else ""
         return (f"pos ({self.x:.1f}, {self.y:.1f}) ft  heading {math.degrees(self.heading):+.0f}°  "
                 f"holding {holding}  busy {'yes' if self.busy else 'no '}  "
-                f"pen {n} ({match} {self.shown_color}){edge}")
+                f"goals {n} ({match} correct){edge}")
 
 
-def in_pen(x: float, y: float) -> bool:
-    hi = FIELD_SIZE - PEN_OFFSET
-    lo = hi - PEN_SIZE
-    return lo <= x <= hi and lo <= y <= hi
+def goal_at(x: float, y: float) -> str | None:
+    """Color of the goal square at (x, y), or None if it's not in one."""
+    y_lo = FIELD_SIZE - TILE + GOAL_INSET
+    y_hi = FIELD_SIZE - GOAL_INSET
+    if not (y_lo <= y <= y_hi):
+        return None
+    for i, color in enumerate(GOAL_ORDER):
+        if i * TILE + GOAL_INSET <= x <= (i + 1) * TILE - GOAL_INSET:
+            return color
+    return None

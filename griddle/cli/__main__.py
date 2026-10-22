@@ -113,7 +113,7 @@ def main(argv: list[str] | None = None) -> None:
         finally:
             sys.stdout = real_out
         n, good = backend.score()
-        print(f"\n{state.message}  Cubes in pen: {n}  ({good} {backend.shown_color})")
+        print(f"\n{state.message}  Cubes in goals: {n}  ({good} in the right goal)")
     else:
         from griddle.backends.masterpi import MasterPiBackend
         backend = MasterPiBackend(shown_color=args.color)

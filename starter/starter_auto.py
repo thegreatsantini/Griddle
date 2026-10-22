@@ -1,6 +1,7 @@
 """STARTER AUTO - scores the freebie cube with zero edits.
 
-Drive straight to the freebie, grab it, keep driving into the pen, drop it.
+Start on the tape facing up. One straight line: drive to the green cube
+right in front of you, grab it, keep driving into the green goal, drop it.
 
 Run it:
     python -m griddle sim starter/starter_auto.py      (laptop)
@@ -13,8 +14,8 @@ check bot.time to know how long we've been on it.
 
 # ---- Tune these on the real mat ----
 DRIVE_SPEED = 0.5
-TO_CUBE_SECONDS = 2.2       # start -> freebie
-TO_PEN_SECONDS = 4.0        # freebie -> inside the pen
+TO_CUBE_SECONDS = 2.07      # start -> claw on the green cube
+TO_GOAL_SECONDS = 2.67      # cube -> middle of the green goal
 BACK_UP_SECONDS = 1.0       # back off so we don't drag the cube out
 
 step = "start"
@@ -47,11 +48,11 @@ def autonomous_periodic(bot):
 
     elif step == "grabbing":
         if not bot.busy:                 # claw finished closing
-            go("to_pen", bot)
+            go("to_goal", bot)
 
-    elif step == "to_pen":
+    elif step == "to_goal":
         bot.drive(DRIVE_SPEED, 0)
-        if t >= TO_PEN_SECONDS:
+        if t >= TO_GOAL_SECONDS:
             bot.stop()
             bot.release()
             go("releasing", bot)

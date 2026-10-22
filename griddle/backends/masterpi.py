@@ -32,6 +32,7 @@ CLAW_MOVE_TIME = 0.5
 CAMERA_INDEX = 0
 FRAME_W, FRAME_H = 320, 240
 MIN_AREA = 150          # px at 320x240; smaller blobs are noise
+MAX_ASPECT = 2.0        # cubes look ~square; the painted goals look wide and flat (CALIBRATE)
 SHOWN_MIN_FRACTION = 0.08
 # HSV ranges (OpenCV: H 0-180). Red wraps around, so it gets two.
 HSV_RANGES = {
@@ -137,10 +138,20 @@ class MasterPiBackend(Backend):
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         if not contours:
             return None
-        biggest = max(contours, key=cv2.contourArea)
-        if cv2.contourArea(biggest) < MIN_AREA:
+        # The goals are painted the same colors as the cubes, so the biggest
+        # blob is often a goal. Keep cube-shaped blobs, then take the one lowest
+        # in the frame (lowest on screen = closest on the floor).
+        candidates = []
+        for c in contours:
+            if cv2.contourArea(c) < MIN_AREA:
+                continue
+            x, y, w, h = cv2.boundingRect(c)
+            if max(w, h) > MAX_ASPECT * min(w, h):
+                continue
+            candidates.append((x, y, w, h))
+        if not candidates:
             return None
-        x, y, w, h = cv2.boundingRect(biggest)
+        x, y, w, h = max(candidates, key=lambda b: b[1] + b[3])
         cx = x + w / 2
         return Cube(x_offset=round((cx - FRAME_W / 2) / (FRAME_W / 2), 3), size=round(w / FRAME_W, 4))
 
