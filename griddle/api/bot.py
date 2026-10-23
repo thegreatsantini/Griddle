@@ -54,6 +54,14 @@ class Bot:
         """
         return self._backend.find_cube(color)
 
+    def floor_color(self) -> str | None:
+        """Which goal square the claw is over: "red", "green", "blue", or None.
+
+        Use it to stop in the goal instead of guessing with a timer:
+            if bot.floor_color() == "green": ...
+        """
+        return self._backend.floor_color()
+
     def detect_shown_color(self) -> str:
         """Read the color of a cube held up to the camera ("unknown" if unsure)."""
         return self._backend.detect_shown_color()

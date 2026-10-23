@@ -1,7 +1,8 @@
 """STARTER AUTO - scores the freebie cube with zero edits.
 
 Start on the tape facing up. One straight line: drive to the green cube
-right in front of you, grab it, keep driving into the green goal, drop it.
+right in front of you, grab it, keep driving until the floor turns green,
+go a little farther so the cube is all the way in, drop it.
 
 Run it:
     python -m griddle sim starter/starter_auto.py      (laptop)
@@ -15,7 +16,8 @@ check bot.time to know how long we've been on it.
 # ---- Tune these on the real mat ----
 DRIVE_SPEED = 0.5
 TO_CUBE_SECONDS = 2.07      # start -> claw on the green cube
-TO_GOAL_SECONDS = 2.67      # cube -> middle of the green goal
+INTO_GOAL_SECONDS = 1.0     # after the floor turns green, keep going this long
+GIVE_UP_SECONDS = 5.0       # never saw green? stop and drop anyway
 BACK_UP_SECONDS = 1.0       # back off so we don't drag the cube out
 
 step = "start"
@@ -52,7 +54,16 @@ def autonomous_periodic(bot):
 
     elif step == "to_goal":
         bot.drive(DRIVE_SPEED, 0)
-        if t >= TO_GOAL_SECONDS:
+        if bot.floor_color() == "green":
+            print(f"{bot.time:4.1f}s  floor is green!")
+            go("into_goal", bot)
+        elif t >= GIVE_UP_SECONDS:
+            print(f"{bot.time:4.1f}s  never saw green - dropping here")
+            go("into_goal", bot)
+
+    elif step == "into_goal":
+        bot.drive(DRIVE_SPEED, 0)
+        if t >= INTO_GOAL_SECONDS:
             bot.stop()
             bot.release()
             go("releasing", bot)

@@ -99,3 +99,8 @@ class Backend(ABC):
         Returns one of COLORS, or "unknown" if nothing is clear.
         """
         ...
+
+    @abstractmethod
+    def floor_color(self) -> str | None:
+        """Color of the goal square right in front of the claw, or None."""
+        ...

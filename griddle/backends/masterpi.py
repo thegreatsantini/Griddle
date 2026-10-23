@@ -34,6 +34,10 @@ FRAME_W, FRAME_H = 320, 240
 MIN_AREA = 150          # px at 320x240; smaller blobs are noise
 MAX_ASPECT = 2.0        # cubes look ~square; the painted goals look wide and flat (CALIBRATE)
 SHOWN_MIN_FRACTION = 0.08
+# floor_color(): looks at a strip along the bottom of the frame (the floor just
+# ahead of the claw). Needs the camera tilted down enough to see the floor.
+FLOOR_ROI_TOP = 0.75    # strip starts 75% of the way down the frame (CALIBRATE)
+FLOOR_MIN_FRACTION = 0.4  # this much of the strip must be one color (CALIBRATE)
 # HSV ranges (OpenCV: H 0-180). Red wraps around, so it gets two.
 HSV_RANGES = {
     "red":   [((0, 120, 70), (10, 255, 255)), ((170, 120, 70), (180, 255, 255))],
@@ -168,6 +172,18 @@ class MasterPiBackend(Backend):
         best = max(counts, key=counts.get)
         if counts[best] < SHOWN_MIN_FRACTION * roi.shape[0] * roi.shape[1]:
             return "unknown"
+        return best
+
+    def floor_color(self) -> str | None:
+        frame = self._frame()
+        if frame is None:
+            return None
+        h, w = frame.shape[:2]
+        strip = frame[int(h * FLOOR_ROI_TOP):, w // 6: 5 * w // 6]
+        counts = {c: int((_mask(strip, c) > 0).sum()) for c in COLORS}
+        best = max(counts, key=counts.get)
+        if counts[best] < FLOOR_MIN_FRACTION * strip.shape[0] * strip.shape[1]:
+            return None
         return best
 
     # --- private ---

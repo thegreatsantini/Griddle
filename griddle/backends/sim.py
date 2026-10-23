@@ -181,6 +181,9 @@ class SimBackend(Backend):
     def detect_shown_color(self) -> str:
         return self.shown_color
 
+    def floor_color(self) -> str | None:
+        return goal_at(*self.claw)
+
     # --- sim-only helpers ---
 
     @property

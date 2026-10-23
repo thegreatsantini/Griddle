@@ -36,6 +36,7 @@ bot.busy                   # True while the claw is moving
 bot.time                   # seconds since this period started
 bot.find_cube("red")       # None, or .x_offset (-1 left..1 right) and .size (bigger = closer)
 bot.detect_shown_color()   # "red", "green", "blue", or "unknown"
+bot.floor_color()          # goal square under the claw: "red", "green", "blue", or None
 ```
 
 ## Built-in driver controls
@@ -53,8 +54,11 @@ A crash in auto stops the robot for the rest of auto. A crash in teleop falls ba
 1. `python3 tools/servo_tune.py`. Find the claw open/closed pulses, set `CLAW_OPEN` / `CLAW_CLOSED`.
 2. Optional: tune `ARM_DOWN` / `ARM_UP`, then flip `ARM_CALIBRATED = True`. Until then only the claw moves.
 3. Vision: if `find_cube` misses, adjust `HSV_RANGES` under the venue lights.
+   `floor_color()` needs the camera tilted to see the floor; tune `FLOOR_ROI_TOP` and `FLOOR_MIN_FRACTION`.
 4. Measure real speed (ft/s at full) and turn rate (rad/s at full), and put them in `griddle/backends/sim.py` so the sim matches.
 
 ## Field (`griddle/backends/sim.py`)
 
-`FIELD_CUBES`, `START_POSE`, and `PEN_SIZE` are placeholders. Edit them to match the mat.
+Goals are the painted squares in the top row: red, green, blue, left to right.
+Six cubes sit on a line at y = 36". Pick the color layout with `LAYOUT` (L1, L2, or L3 shuffled).
+`BLOCK_X`, `START_POSE`, and `GOAL_INSET` should match tape-measure numbers from the real mat.
